@@ -106,14 +106,14 @@ export default {
   border-bottom: 1px solid #e2e8f0;
   padding: 0.75rem 0;
   position: sticky;
-  top: 70px;
+  /* No top nav above us anymore — stick to top of content-area */
+  top: 0;
   z-index: 90;
 }
 
 .filters-container {
-  max-width: 1600px;
-  margin: 0 auto;
-  padding: 0 2rem;
+  /* Span the full content area width; padding matches main-content sides */
+  padding: 0 var(--space-8, 2rem);
   display: flex;
   align-items: center;
   gap: 1rem;

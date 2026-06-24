@@ -2,6 +2,7 @@
   <div class="language-switcher">
     <button
       class="language-button"
+      :class="{ 'language-button--dark': props.dark }"
       @click="toggleDropdown"
       @blur="handleBlur"
     >
@@ -30,7 +31,7 @@
       </svg>
     </button>
 
-    <div v-if="isDropdownOpen" class="dropdown-menu">
+    <div v-if="isDropdownOpen" class="dropdown-menu" :class="{ 'dropdown-menu--upward': props.dark }">
       <button
         v-for="locale in availableLocales"
         :key="locale"
@@ -57,6 +58,14 @@
 <script setup>
 import { ref } from 'vue'
 import { useI18n } from '../composables/useI18n'
+
+const props = defineProps({
+  // When true: trigger uses light text for dark backgrounds, dropdown opens upward
+  dark: {
+    type: Boolean,
+    default: false
+  }
+})
 
 const { currentLocale, setLocale, availableLocales, localeName } = useI18n()
 
@@ -179,5 +188,33 @@ const selectLanguage = (locale) => {
 .check-icon {
   color: #2563eb;
   flex-shrink: 0;
+}
+
+/* Dark trigger variant (for use inside dark sidebar) */
+.language-button--dark {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+  width: 100%;
+}
+
+.language-button--dark:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.language-button--dark .globe-icon {
+  color: #94a3b8;
+}
+
+.language-button--dark .chevron {
+  color: #94a3b8;
+}
+
+/* Upward-opening dropdown (when anchored at bottom of sidebar) */
+.dropdown-menu--upward {
+  top: auto;
+  bottom: calc(100% + 0.5rem);
 }
 </style>
