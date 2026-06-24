@@ -2,7 +2,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 from pydantic import BaseModel
-from mock_data import inventory_items, orders, demand_forecasts, backlog_items, spending_summary, monthly_spending, category_spending, recent_transactions, purchase_orders
+from datetime import datetime, timedelta
+import json
+import os
+from mock_data import inventory_items, orders, demand_forecasts, backlog_items, spending_summary, monthly_spending, category_spending, recent_transactions, purchase_orders, restocking_orders, DATA_DIR
 
 app = FastAPI(title="Factory Inventory Management System")
 
@@ -120,6 +123,60 @@ class CreatePurchaseOrderRequest(BaseModel):
     expected_delivery_date: str
     notes: Optional[str] = None
 
+class RestockRecommendation(BaseModel):
+    item_sku: str
+    item_name: str
+    trend: str
+    current_demand: int
+    forecasted_demand: int
+    recommended_quantity: int   # max(forecasted - current, 0)
+    unit_cost: float
+    line_cost: float            # recommended_quantity * unit_cost
+
+class RestockOrderItem(BaseModel):
+    item_sku: str
+    item_name: str
+    quantity: int
+    unit_cost: float
+
+class RestockingOrder(BaseModel):
+    id: str
+    order_number: str            # e.g. "RSO-2025-0001"
+    items: List[RestockOrderItem]
+    status: str                  # "Submitted"
+    submitted_date: str          # ISO 8601
+    lead_time_days: int          # days until expected delivery
+    expected_delivery: str       # submitted_date + lead_time_days
+    total_quantity: int
+    total_cost: float
+
+class CreateRestockingOrderRequest(BaseModel):
+    items: List[RestockOrderItem]
+    lead_time_days: Optional[int] = 14
+
+# Default unit cost used when a demand-forecast SKU has no matching inventory
+# item. The demand SKUs (WDG-001, BRG-102, ...) and inventory SKUs (PCB-001,
+# TMP-201, ...) do not overlap in the mock data, so most recommendations rely
+# on this fallback to be priced.
+DEFAULT_RESTOCK_UNIT_COST = 50.0
+
+def save_restocking_orders():
+    """Persist the in-memory restocking_orders list back to its JSON file.
+
+    Restocking is the only dataset that survives a server restart, so it is
+    written to disk after every successful submission. The write goes to a
+    temp file and is atomically swapped in, so an interrupted write can never
+    leave a half-written (corrupt) JSON file that would break the next startup.
+    """
+    filepath = os.path.join(DATA_DIR, 'restocking_orders.json')
+    tmp_path = filepath + '.tmp'
+    try:
+        with open(tmp_path, 'w') as f:
+            json.dump(restocking_orders, f, indent=2)
+        os.replace(tmp_path, filepath)  # atomic on POSIX
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to persist restocking order: {e}")
+
 # API endpoints
 @app.get("/")
 def root():
@@ -165,6 +222,82 @@ def get_order(order_id: str):
 def get_demand_forecasts():
     """Get demand forecasts"""
     return demand_forecasts
+
+@app.get("/api/restocking/recommendations", response_model=List[RestockRecommendation])
+def get_restocking_recommendations():
+    """Recommend items to restock based on the demand forecast.
+
+    Uses a demand-gap strategy: only items whose forecasted demand exceeds
+    current demand are recommended, with quantity = forecasted - current.
+    Results are ranked by priority (increasing trend first, then larger gap).
+    No budget is applied here — the client allocates against the budget slider
+    reactively to avoid an API call on every slider movement.
+    """
+    recommendations = []
+    for forecast in demand_forecasts:
+        gap = forecast["forecasted_demand"] - forecast["current_demand"]
+        if gap <= 0:
+            continue
+
+        # Resolve unit cost from inventory by SKU; fall back to a default when
+        # there is no matching inventory item (demand and inventory SKUs differ).
+        inventory_match = next(
+            (item for item in inventory_items if item["sku"] == forecast["item_sku"]),
+            None
+        )
+        unit_cost = inventory_match["unit_cost"] if inventory_match else DEFAULT_RESTOCK_UNIT_COST
+
+        recommendations.append({
+            "item_sku": forecast["item_sku"],
+            "item_name": forecast["item_name"],
+            "trend": forecast["trend"],
+            "current_demand": forecast["current_demand"],
+            "forecasted_demand": forecast["forecasted_demand"],
+            "recommended_quantity": gap,
+            "unit_cost": round(unit_cost, 2),
+            "line_cost": round(gap * unit_cost, 2)
+        })
+
+    # Sort by priority: increasing trend first, then larger recommended quantity
+    recommendations.sort(key=lambda r: (r["trend"] != "increasing", -r["recommended_quantity"]))
+    return recommendations
+
+@app.get("/api/restocking-orders", response_model=List[RestockingOrder])
+def get_restocking_orders():
+    """Get all submitted restocking orders (newest first)."""
+    return list(reversed(restocking_orders))
+
+@app.post("/api/restocking-orders", response_model=RestockingOrder)
+def create_restocking_order(request: CreateRestockingOrderRequest):
+    """Submit a new restocking order and persist it to disk."""
+    # Drop any zero/negative-quantity lines, then require at least one real item
+    valid_items = [item for item in request.items if item.quantity > 0]
+    if not valid_items:
+        raise HTTPException(status_code=400, detail="Restocking order must contain at least one item with quantity > 0")
+
+    lead_time_days = request.lead_time_days or 14
+    submitted = datetime.now()
+    expected = submitted + timedelta(days=lead_time_days)
+
+    total_quantity = sum(item.quantity for item in valid_items)
+    total_cost = round(sum(item.quantity * item.unit_cost for item in valid_items), 2)
+
+    new_order = {
+        "id": str(len(restocking_orders) + 1),
+        # Order number uses the submission year so it stays correct over time
+        "order_number": f"RSO-{submitted.year}-{len(restocking_orders) + 1:04d}",
+        "items": [item.model_dump() for item in valid_items],
+        "status": "Submitted",
+        "submitted_date": submitted.isoformat(),
+        "lead_time_days": lead_time_days,
+        "expected_delivery": expected.isoformat(),
+        "total_quantity": total_quantity,
+        "total_cost": total_cost
+    }
+
+    restocking_orders.append(new_order)
+    save_restocking_orders()
+    return new_order
 
 @app.get("/api/backlog", response_model=List[BacklogItem])
 def get_backlog():

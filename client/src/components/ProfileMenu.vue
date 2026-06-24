@@ -2,6 +2,7 @@
   <div class="profile-menu">
     <button
       class="profile-button"
+      :class="{ 'profile-button--dark': props.dark }"
       @click="toggleDropdown"
       @blur="handleBlur"
     >
@@ -21,7 +22,7 @@
       </svg>
     </button>
 
-    <div v-if="isDropdownOpen" class="dropdown-menu">
+    <div v-if="isDropdownOpen" class="dropdown-menu" :class="{ 'dropdown-menu--upward': props.dark }">
       <div class="dropdown-header">
         <div class="avatar-large">
           {{ getInitials(currentUser.name) }}
@@ -77,6 +78,14 @@
 import { ref, computed } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import { useI18n } from '../composables/useI18n'
+
+const props = defineProps({
+  // When true: trigger uses light text for dark backgrounds, dropdown opens upward
+  dark: {
+    type: Boolean,
+    default: false
+  }
+})
 
 const { currentUser, logout, getInitials } = useAuth()
 const { t } = useI18n()
@@ -277,5 +286,31 @@ const handleLogout = () => {
   border-radius: 12px;
   min-width: 20px;
   text-align: center;
+}
+
+/* Dark trigger variant (for use inside dark sidebar) */
+.profile-button--dark {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.1);
+  width: 100%;
+}
+
+.profile-button--dark:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.profile-button--dark .profile-name {
+  color: #e2e8f0;
+}
+
+.profile-button--dark .chevron {
+  color: #94a3b8;
+}
+
+/* Upward-opening dropdown (when anchored at bottom of sidebar) */
+.dropdown-menu--upward {
+  top: auto;
+  bottom: calc(100% + 0.5rem);
 }
 </style>

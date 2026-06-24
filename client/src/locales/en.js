@@ -4,10 +4,40 @@ export default {
     overview: 'Overview',
     inventory: 'Inventory',
     orders: 'Orders',
+    restocking: 'Restocking',
     finance: 'Finance',
     demandForecast: 'Demand Forecast',
     companyName: 'Catalyst Components',
-    subtitle: 'Inventory Management System'
+    subtitle: 'Inventory Management System',
+    collapseSidebar: 'Collapse sidebar',
+    expandSidebar: 'Expand sidebar'
+  },
+
+  // Restocking
+  restocking: {
+    title: 'Restocking',
+    description: 'Set a budget and restock items based on the demand forecast',
+    budgetLabel: 'Available Budget',
+    selected: 'Selected',
+    totalCost: 'Total Cost',
+    remaining: 'Remaining',
+    withinBudget: 'Within budget',
+    overBudget: 'Over budget',
+    recommendations: 'Recommended Restock Items',
+    noRecommendations: 'No restock recommendations — forecasted demand is covered.',
+    placeOrder: 'Place Order',
+    placing: 'Placing order…',
+    orderSuccess: 'Restocking order {orderNumber} submitted successfully.',
+    orderError: 'Failed to place restocking order',
+    leadTimeNote: 'Estimated delivery lead time: {days} days',
+    table: {
+      include: 'Include',
+      item: 'Item',
+      trend: 'Trend',
+      quantity: 'Qty to Restock',
+      unitCost: 'Unit Cost',
+      lineCost: 'Line Cost'
+    }
   },
 
   // Dashboard
@@ -106,6 +136,7 @@ export default {
     title: 'Orders',
     description: 'View and manage customer orders',
     allOrders: 'All Orders',
+    submittedOrders: 'Submitted Orders',
     totalOrders: 'Total Orders',
     totalRevenue: 'Total Revenue',
     avgOrderValue: 'Avg Order Value',
@@ -125,8 +156,12 @@ export default {
       totalValue: 'Total Value',
       status: 'Status',
       expectedDelivery: 'Expected Delivery',
-      actualDelivery: 'Actual Delivery'
-    }
+      actualDelivery: 'Actual Delivery',
+      submittedDate: 'Submitted Date',
+      leadTime: 'Lead Time',
+      totalCost: 'Total Cost'
+    },
+    leadTimeDays: '{days} days'
   },
 
   // Finance/Spending

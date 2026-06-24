@@ -35,5 +35,9 @@ recent_transactions = load_json_file('transactions.json')
 # Load purchase orders
 purchase_orders = load_json_file('purchase_orders.json')
 
+# Load submitted restocking orders (the only dataset that is written back to disk;
+# see save_restocking_orders() in main.py for the persistence path)
+restocking_orders = load_json_file('restocking_orders.json')
+
 # All data is now loaded from JSON files in the data/ directory
 # This allows for easier maintenance and updates of the sample data
